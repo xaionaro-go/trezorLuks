@@ -23,19 +23,31 @@ Passing an option to cryptsetup:
 
 Session example:
 ```sh
-$ sudo ./trezorLuks luksFormat /dev/loop0
-Sent the request to the Trezor device (please confirm the operation if required)
-Running: cryptsetup [--key-file - luksFormat /dev/loop0]
+$ sudo ./trezorLuks luksFormat /dev/loop0 
+Initializing with a temporary password (to generate a master key)
+Running: cryptsetup [--key-file /proc/cmdline luksFormat /dev/loop0]
+Getting the master key metadata
+Generating an initial key and an IV
+Sent a request to the Trezor device (please confirm the operation if required)
+Adding the secure key
+Running: cryptsetup [--key-file /proc/cmdline luksAddKey /dev/loop0 -]
+Removing the temporary key
+Running: cryptsetup [--key-file /proc/cmdline luksRemoveKey /dev/loop0]
+Done
 
 $ sudo ./trezorLuks luksOpen /dev/loop0 test
-Sent the request to the Trezor device (please confirm the operation if required)
-Running: cryptsetup [--key-file - luksOpen /dev/loop0 test]
+Getting the master key metadata
+Generating an initial key and an IV
+Sent a request to the Trezor device (please confirm the operation if required)
+Running: cryptsetup [--key-file - luksOpen /dev/loop0 sdf]
+Done
 
 $ ls -ld /dev/mapper/test
 lrwxrwxrwx 1 root root 7 Jun  9 17:25 /dev/mapper/test -> ../dm-0
 
 $ sudo ./trezorLuks luksClose test
 Running: cryptsetup [luksClose test]
+Done
 
 $ ls -ld /dev/mapper/test
 ls: cannot access '/dev/mapper/test': No such file or directory
