@@ -74,7 +74,7 @@ func main() {
 	case "":
 		os.Exit(usage())
 
-	case "luksOpen", "luksFormat":
+	case "luksOpen", "luksFormat", "luksDump", "luksResume", "luksAddKey", "luksChangeKey":
 		fmt.Println("Sent the request to the Trezor device (please confirm the operation if required)")
 		trezorInstance := trezor.New()
 		decryptedKey, err = trezorInstance.DecryptKey(initialKeyValye, iv, *keyNameParameter)
