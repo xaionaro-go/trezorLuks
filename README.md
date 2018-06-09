@@ -40,3 +40,6 @@ Running: cryptsetup [luksClose test]
 $ ls -ld /dev/mapper/test
 ls: cannot access '/dev/mapper/test': No such file or directory
 ```
+
+Other projects (to encrypt FS using Trezor):
+* https://github.com/rfjakob/gocryptfs/pull/243
