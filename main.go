@@ -71,6 +71,8 @@ func main() {
 
 	var err error
 	var decryptedKey []byte
+	var stdin io.Reader
+	stdin = os.Stdin
 	switch luksCmd {
 	case "":
 		os.Exit(usage())
@@ -81,8 +83,9 @@ func main() {
 		decryptedKey, err = trezorInstance.DecryptKey(initialKeyValye, iv, *keyNameParameter)
 		checkError(err)
 		args = append([]string{"--key-file", "-"}, args...)
+		stdin = bytes.NewReader(decryptedKey)
 	}
 
-	err = run(bytes.NewReader(decryptedKey), "cryptsetup", args...)
+	err = run(stdin, "cryptsetup", args...)
 	checkError(err)
 }
