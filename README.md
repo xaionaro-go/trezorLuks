@@ -42,4 +42,8 @@ ls: cannot access '/dev/mapper/test': No such file or directory
 ```
 
 Other projects (to encrypt FS using Trezor):
-* https://github.com/rfjakob/gocryptfs/pull/243
+* [gocryptfs](https://github.com/rfjakob/gocryptfs/pull/243)
+
+Documentation:
+* [LUKS On-Disk Format Specification Version 1.0](http://clemens.endorphin.org/LUKS-on-disk-format.pdf)
+
