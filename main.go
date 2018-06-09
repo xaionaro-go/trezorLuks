@@ -1,7 +1,10 @@
+// +build linux
+
 package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -11,17 +14,6 @@ import (
 
 	"github.com/pborman/getopt/v2"
 	"github.com/xaionaro-go/trezorLuks/trezor"
-)
-
-var (
-	// Just some random values (from /dev/random)
-	initialKeyValue = []byte{
-		0xea, 0x30, 0xe0, 0xc7, 0x11, 0x4a, 0x64, 0x8b, 0x4a, 0xb3, 0x8f, 0xb9, 0xf1, 0x8a, 0x8d, 0xa1,
-		0x56, 0x03, 0xbe, 0xd2, 0xa3, 0xba, 0x63, 0x18, 0xf0, 0xd2, 0xda, 0x47, 0x2a, 0x97, 0xfa, 0x48,
-	}
-	iv = []byte{
-		0xf9, 0xa1, 0x99, 0xec, 0xa6, 0x81, 0x78, 0x19, 0xcc, 0x67, 0x55, 0x61, 0x6e, 0xc3, 0x1e, 0xd8,
-	}
 )
 
 var tmpDir string
@@ -50,6 +42,83 @@ func usage() int {
 	return int(syscall.EINVAL)
 }
 
+func getMasterkeyMetadata(devicePath string) ([]byte, []byte, error) {
+	output, err := exec.Command("cryptsetup", "luksDump", devicePath).Output()
+	if err != nil {
+		return nil, nil, fmt.Errorf(`Cannot get luksDump for "%v": %v: %v`, devicePath, err, string(output))
+	}
+	lines := strings.Split(string(output), "\n")
+
+	parseValue := func(lines []string) ([]string, string) {
+		var value []string
+
+		keysCount := 0
+		for {
+			line := lines[0]
+			lineParts := strings.Split(line, ":")
+			if len(lineParts) > 1 {
+				keysCount++
+				lineParts = lineParts[1:]
+			}
+			if keysCount > 1 {
+				break
+			}
+			lines = lines[1:]
+			valuePart := strings.Trim(strings.Join(lineParts, ":"), "\t ")
+
+			value = append(value, valuePart)
+		}
+
+		return lines, strings.Join(value, "  ")
+	}
+
+	var rawDigest string
+	var rawSalt string
+
+	for len(lines) != 0 {
+		line := lines[0]
+		if strings.HasPrefix(line, "MK digest:") {
+			lines, rawDigest = parseValue(lines)
+		} else
+		if strings.HasPrefix(line, "MK salt:") {
+			lines, rawSalt = parseValue(lines)
+		} else
+		if len(lines) > 0 {
+			lines = lines[1:]
+		}
+	}
+
+	convertValue := func(rawValue string) ([]byte, error) {
+		rawValue = strings.Replace(rawValue, " ", "", -1)
+		return hex.DecodeString(rawValue)
+	}
+
+	digest, err := convertValue(rawDigest)
+	if err != nil {
+		return nil, nil, err
+	}
+	salt, err := convertValue(rawSalt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return digest, salt, nil
+}
+
+func getInitialParameters(devicePath string) ([]byte, []byte, error) {
+	mkDigest, mkSalt, err := getMasterkeyMetadata(devicePath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	initialKeyValue := mkSalt
+	iv := mkDigest
+	if len(iv) > 16 {
+		iv = iv[:16]
+	}
+	return initialKeyValue, iv, nil
+}
+
 func main() {
 	helpFlag := getopt.BoolLong("help", 'h', "print help message")
 	keyNameParameter := getopt.StringLong("trezor-key-name", 0, "luks", "sets the name of a key to be received from the Trezor")
@@ -61,11 +130,13 @@ func main() {
 	}
 
 	var luksCmd string
-	for _, arg := range args {
+	var luksCmdIdx int
+	for idx, arg := range args {
 		if !strings.HasPrefix(arg, "luks") {
 			continue
 		}
 		luksCmd = arg
+		luksCmdIdx = idx
 		break
 	}
 
@@ -77,15 +148,57 @@ func main() {
 	case "":
 		os.Exit(usage())
 
-	case "luksOpen", "luksFormat", "luksDump", "luksResume", "luksAddKey", "luksChangeKey":
-		fmt.Println("Sent the request to the Trezor device (please confirm the operation if required)")
+	case "luksOpen", "luksFormat", "luksResume", "luksAddKey", "luksChangeKey":
+
+		// We need to create the master key, first
+		if luksCmd == "luksFormat" {
+			fmt.Println("Initializing with a temporary password (to generate a master key)")
+			err = run(bytes.NewReader([]byte{}), "cryptsetup", append([]string{"--key-file", "/proc/cmdline"}, args...)...)
+			checkError(err)
+		}
+
+		// Search for an argument with the encrypted device path
+		fmt.Println("Getting the master key metadata")
+		var devicePath string
+		for idx, arg := range args[luksCmdIdx+1:] {
+			if arg == "--" {
+				fmt.Println(len(args), ",", idx, ",", len(args[luksCmdIdx:]))
+			}
+			if strings.HasPrefix(arg, "-") { // the first non-option (not "-*") after the command argument ("luks*")
+				continue
+			}
+			devicePath = arg
+			break
+		}
+
+		// Getting initialKeyValue and IV from UUID of the device
+		fmt.Println("Generating an initial key and an IV")
+		initialKeyValue, iv, err := getInitialParameters(devicePath)
+		checkError(err)
+
+		//                     (256b,            32b, 256b,   ?,         ?,       ?,   ?)          -> 256b
+		// Getting a real key: (initialKeyValue, IV,  Trezor, BIP32Path, keyName, PIN, Passphrase) -> key
 		trezorInstance := trezor.New()
+		fmt.Println("Sent a request to the Trezor device (please confirm the operation if required)")
 		decryptedKey, err = trezorInstance.DecryptKey(initialKeyValue, iv, *keyNameParameter)
 		checkError(err)
+
+		// Using this key to encrypt/decrypt the master key (in `cryptsetup`)
 		args = append([]string{"--key-file", "-"}, args...)
 		stdin = bytes.NewReader(decryptedKey)
+
+		// Changing the password to the permonent one
+		if luksCmd == "luksFormat" {
+			fmt.Println("Adding the secure key")
+			err = run(stdin, "cryptsetup", "--key-file", "/proc/cmdline", "luksAddKey", devicePath, "-")
+			fmt.Println("Removing the temporary key")
+			err = run(stdin, "cryptsetup", "--key-file", "/proc/cmdline", "luksRemoveKey", devicePath)
+			fmt.Println("Done")
+			return
+		}
 	}
 
 	err = run(stdin, "cryptsetup", args...)
 	checkError(err)
+	fmt.Println("Done")
 }
