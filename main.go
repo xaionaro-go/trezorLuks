@@ -15,7 +15,7 @@ import (
 
 var (
 	// Just some random values (from /dev/random)
-	initialKeyValye = []byte{
+	initialKeyValue = []byte{
 		0xea, 0x30, 0xe0, 0xc7, 0x11, 0x4a, 0x64, 0x8b, 0x4a, 0xb3, 0x8f, 0xb9, 0xf1, 0x8a, 0x8d, 0xa1,
 		0x56, 0x03, 0xbe, 0xd2, 0xa3, 0xba, 0x63, 0x18, 0xf0, 0xd2, 0xda, 0x47, 0x2a, 0x97, 0xfa, 0x48,
 	}
@@ -80,7 +80,7 @@ func main() {
 	case "luksOpen", "luksFormat", "luksDump", "luksResume", "luksAddKey", "luksChangeKey":
 		fmt.Println("Sent the request to the Trezor device (please confirm the operation if required)")
 		trezorInstance := trezor.New()
-		decryptedKey, err = trezorInstance.DecryptKey(initialKeyValye, iv, *keyNameParameter)
+		decryptedKey, err = trezorInstance.DecryptKey(initialKeyValue, iv, *keyNameParameter)
 		checkError(err)
 		args = append([]string{"--key-file", "-"}, args...)
 		stdin = bytes.NewReader(decryptedKey)
