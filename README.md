@@ -46,4 +46,4 @@ Other projects (to encrypt FS using Trezor):
 
 Documentation:
 * [LUKS On-Disk Format Specification Version 1.0](http://clemens.endorphin.org/LUKS-on-disk-format.pdf)
-
+* [SLIP-0011 : Symmetric encryption of key-value pairs using deterministic hierarchy](https://github.com/satoshilabs/slips/blob/master/slip-0011.md)
