@@ -10,7 +10,7 @@ import (
 	"syscall"
 
 	"github.com/pborman/getopt/v2"
-	"github.com/xaionaro-go/trezorLuks/trezor"
+	"github.com/xaionaro-go/trezor"
 )
 
 var (
