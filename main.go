@@ -78,7 +78,7 @@ func main() {
 	case "luksOpen", "luksFormat", "luksDump", "luksResume", "luksAddKey", "luksChangeKey":
 		fmt.Println("Sent the request to the Trezor device (please confirm the operation if required)")
 		trezorInstance := trezor.New()
-		decryptedKey, err = trezorInstance.DecryptKey(initialKeyValue, iv, *keyNameParameter)
+		decryptedKey, err = trezorInstance.DecryptKey(`m/71'/a6'/3'/45'/97'`, initialKeyValue, iv, *keyNameParameter)
 		checkError(err)
 		args = append([]string{"--key-file", "-"}, args...)
 		stdin = bytes.NewReader(decryptedKey)
