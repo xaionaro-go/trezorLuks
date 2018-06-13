@@ -13,10 +13,8 @@ import (
 	"syscall"
 
 	"github.com/pborman/getopt/v2"
-	"github.com/xaionaro-go/trezorLuks/trezor"
+	"github.com/xaionaro-go/trezor"
 )
-
-var tmpDir string
 
 func checkError(err error) {
 	if err == nil {
@@ -180,7 +178,7 @@ func main() {
 		// Getting a real key: (initialKeyValue, IV,  Trezor, BIP32Path, keyName, PIN, Passphrase) -> key
 		trezorInstance := trezor.New()
 		fmt.Println("Sent a request to the Trezor device (please confirm the operation if required)")
-		decryptedKey, err = trezorInstance.DecryptKey(initialKeyValue, iv, *keyNameParameter)
+		decryptedKey, err = trezorInstance.DecryptKey(`m/71'/a6'/3'/45'/97'`, initialKeyValue, iv, *keyNameParameter)
 		checkError(err)
 
 		// Using this key to encrypt/decrypt the master key (in `cryptsetup`)
