@@ -24,8 +24,6 @@ var (
 	}
 )
 
-var tmpDir string
-
 func checkError(err error) {
 	if err == nil {
 		return
