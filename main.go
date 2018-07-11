@@ -78,7 +78,16 @@ func main() {
 	case "luksOpen", "luksFormat", "luksDump", "luksResume", "luksAddKey", "luksChangeKey":
 		fmt.Println("Sent the request to the Trezor device (please confirm the operation if required)")
 		wallet := cryptoWallet.FindAny()
-		decryptedKey, err = wallet.DecryptKey(`m/71'/a6'/3'/45'/97'`, initialKeyValue, iv, *keyNameParameter)
+		wallet.SetGetPinFunc(func(title, description, ok, cancel string) ([]byte, error) {
+			cmd := exec.Command("/lib/cryptsetup/askpass", title)
+			cmd.Stdin = os.Stdin
+			cmd.Stderr = os.Stderr
+			return cmd.Output()
+		})
+		wallet.SetGetConfirmFunc(func(title, description, ok, cancel string) (bool, error) {
+			return false, nil // Confirmation is required to reconnect to Trezor. We considered that disconnected Trezor is enough to exit the program.
+		})
+		decryptedKey, err = wallet.DecryptKey(`m/10019'/1'`, initialKeyValue, iv, *keyNameParameter)
 		checkError(err)
 		args = append([]string{"--key-file", "-"}, args...)
 		stdin = bytes.NewReader(decryptedKey)
